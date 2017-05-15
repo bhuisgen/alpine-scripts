@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+#
+# Setup Alpine Linux chroot environment.
+#
+# Boris HUISGEN <bhuisgen@hbis.fr>
+#
+
+function usage() {
+    echo -e "Usage: $(basename "$0") [OPTIONS] [<CONFIG>]"
+    echo -e ""
+    echo -e "Setup Alpine Linux chroot environment."
+    echo -e ""
+    echo -e "Options:"
+    echo -e "  --help\t\t\tdisplay this help and exit"
+}
+
+function error() {
+    echo -e "\033[1;31mERROR:\033[0m $@" >&2
+}
+
+function info() {
+	echo -e "\033[1;36mINFO:\033[0m $@"
+}
+
+function warn() {
+	echo -e "\033[1;33mWARN:\033[0m $@" >&2
+}
+
+function die() {
+    error "$@"
+	exit 1
+}
+
+function normalize_arch() {
+	case "$1" in
+	    x86 | i[3456]86) echo 'i386';;
+		armhf | armv[4-9]) echo 'arm';;
+		*) echo "$1";;
+	esac
+}
+
+function create_script() {
+    root_dir=$1
+    qemu_arch=$3
+
+    cat <<EOF > "$root_dir/run.sh"
+#!/usr/bin/env bash
+#
+# Run Alpine Linux chroot environment.
+#
+# Boris HUISGEN <bhuisgen@hbis.fr>
+#
+
+function usage() {
+    echo -e "Usage: $(basename "$0") [OPTIONS]"
+    echo -e ""
+    echo -e "Run Alpine Linux chroot environment."
+    echo -e ""
+    echo -e "Options:"
+    echo -e "  --root\t\tenter chroot as root user"
+    echo -e "  --user <USER>\t\tenter chroot as given user"
+    echo -e ""
+    echo -e "  --help\t\tdisplay this help and exit"
+}
+
+while [[ \$# -gt 0 ]]
+do
+    key="\$1"
+    case \$key in
+        --root)
+        USER=root
+        shift 1
+        ;;
+
+        --user)
+        if [ -z "\$2" ]; then
+            usage
+            exit 2
+        fi
+
+        USER=\$2
+        shift 2
+        ;;
+
+        -h|--help)
+        usage
+        exit 0
+        ;;
+
+        *)
+        usage
+        exit 2
+        ;;
+    esac
+done
+
+SCRIPT=\$(readlink -f "\$0")
+BASEDIR=\$(dirname "\$SCRIPT")
+CHROOT_DIR="\${BASEDIR}/chroot"
+
+[ "\$(id -u)" -eq 0 ] || _sudo="sudo"
+
+function cleanup() {
+    \$_sudo mountpoint -q "\${CHROOT_DIR}/proc" && \$_sudo umount "\${CHROOT_DIR}/proc"
+    \$_sudo mountpoint -q "\${CHROOT_DIR}/sys" && \$_sudo umount "\${CHROOT_DIR}/sys"
+    \$_sudo mountpoint -q "\${CHROOT_DIR}/dev" && \$_sudo umount "\${CHROOT_DIR}/dev"
+    echo ""
+}
+
+trap 'cleanup' EXIT
+trap 'cleanup; exit 1' ERR INT TERM
+
+\$_sudo mount -t proc none "\${CHROOT_DIR}/proc"
+\$_sudo mount -o bind /sys "\${CHROOT_DIR}/sys"
+\$_sudo mount -o bind /dev "\${CHROOT_DIR}/dev"
+
+\$_sudo cp /etc/resolv.conf "\${CHROOT_DIR}/etc/resolv.conf"
+EOF
+
+    if [ ! -z "$qemu_arch" ]; then
+        cat <<EOF >> "$root_dir/run.sh"
+\$_sudo chroot "\${CHROOT_DIR}" /usr/bin/qemu-$qemu_arch-static /bin/su -l \${USER}
+EOF
+    else
+        cat <<EOF >> "$root_dir/run.sh"
+\$_sudo chroot "\${CHROOT_DIR}" /bin/su -l \${USER}
+EOF
+    fi
+
+    chmod +x "$root_dir/run.sh"
+}
+
+function enter_chroot() {
+    root_dir=$1
+
+    cd "$root_dir"
+    ./run.sh --root
+}
+
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+        -h|--help)
+        usage
+        exit 0
+        ;;
+
+        *)
+        usage
+        exit 2
+        ;;
+    esac
+done
+
+SCRIPT=$(readlink -f "$0")
+BASEDIR=$(dirname "$SCRIPT")
+USER=${SUDO_USER:-$(whoami)}
+
+if [ ! -z "$1" ]; then
+    CONFIG_FILE="$1"
+else
+    CONFIG_FILE="${BASEDIR}/config"
+fi
+
+if [ ! -f "${CONFIG_FILE}" ]; then
+    die "Configuration file '${CONFIG_FILE}' not found"
+    exit 1
+fi
+
+source "${CONFIG_FILE}"
+
+CHROOT_DIR="${ROOT_DIR}/chroot"
+DIST_DIR="${BASEDIR}/dist"
+
+if [ "$(id -u)" -ne 0 ]; then
+	die "This script must be run as root"
+fi
+
+if [ -d "${CHROOT_DIR}" ]; then
+    die "Chroot directory already exists"
+fi
+
+if [ ! -z "${ALPINE_ARCH}" ] && [ $(normalize_arch ${ALPINE_ARCH}) != $(normalize_arch $(uname -m)) ]; then
+	qemu_arch="$(normalize_arch ${ALPINE_ARCH})"
+
+	if [ ! -x "/usr/bin/qemu-$qemu_arch-static" ]; then
+	    die "/usr/bin/qemu-$qemu_arch-static not found"
+	fi
+
+	if [ ! -e "/proc/sys/fs/binfmt_misc/qemu-$qemu_arch" ]; then
+		die "binfmt support for qemu-$qemu_arch is not available"
+	fi
+fi
+
+info "Creating chroot environment in ${ROOT_DIR}"
+
+rm -fr "${DIST_DIR}"
+mkdir -p "${DIST_DIR}"
+mkdir -p "${ROOT_DIR}" "${CHROOT_DIR}"
+
+if [ ! -z "${ALPINE_ARCH}" ] && [ $(normalize_arch ${ALPINE_ARCH}) != $(normalize_arch $(uname -m)) ]; then
+	qemu_arch="$(normalize_arch ${ALPINE_ARCH})"
+
+    info "Configuring emulation for $qemu_arch"
+
+	mkdir -p "${CHROOT_DIR}/usr/bin"
+	cp -v /usr/bin/qemu-$qemu_arch-static "${CHROOT_DIR}/usr/bin/"
+fi
+
+cd "${DIST_DIR}"
+
+wget ${ALPINE_MIRROR}/${ALPINE_BRANCH}/main/${ALPINE_ARCH}/apk-tools-static-${ALPINE_APKTOOLS}.apk
+tar -xzf apk-tools-static-${ALPINE_APKTOOLS}.apk
+
+./sbin/apk.static -X ${ALPINE_MIRROR}/latest-stable/main -U --allow-untrusted --root "${CHROOT_DIR}" \
+    --initdb ${ALPINE_ARCH:+--arch ${ALPINE_ARCH}} add alpine-base
+
+mknod -m 666 "${CHROOT_DIR}/dev/full" c 1 7
+mknod -m 666 "${CHROOT_DIR}/dev/ptmx" c 5 2
+mknod -m 644 "${CHROOT_DIR}/dev/random" c 1 8
+mknod -m 644 "${CHROOT_DIR}/dev/urandom" c 1 9
+mknod -m 666 "${CHROOT_DIR}/dev/zero" c 1 5
+mknod -m 666 "${CHROOT_DIR}/dev/tty" c 5 0
+
+mkdir -p "${CHROOT_DIR}/etc/apk"
+echo "${ALPINE_MIRROR}/${ALPINE_BRANCH}/main" > "${CHROOT_DIR}/etc/apk/repositories"
+
+info "Creating run script"
+
+create_script "${ROOT_DIR}" $qemu_arch
+
+info "Configuring base environment"
+
+enter_chroot "${ROOT_DIR}" <<EOF
+rc-update add devfs sysinit
+rc-update add dmesg sysinit
+rc-update add mdev sysinit
+rc-update add hwclock boot
+rc-update add modules boot
+rc-update add sysctl boot
+rc-update add hostname boot
+rc-update add bootmisc boot
+rc-update add syslog boot
+rc-update add mount-ro shutdown
+rc-update add killprocs shutdown
+rc-update add savecache shutdown
+
+apk update
+apk upgrade
+apk add bash curl git jq openssh-client tar ${ALPINE_PACKAGES}
+EOF
+
+rsync -a --no-owner --no-group "${BASEDIR}/rootfs/" "${CHROOT_DIR}/"
+
+echo "export PS1='\\033[1;31m(${CHROOT_NAME})\\033[0m:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> "${CHROOT_DIR}/root/.profile"
+
+mkdir -p "${CHROOT_DIR}/etc/skel"
+echo "export PS1='\\033[1;33m(${CHROOT_NAME})\\033[0m:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> "${CHROOT_DIR}/etc/skel/.bashrc"
+
+if [ ! -z "${ALPINE_SDK}" ] && [ "${ALPINE_SDK}" -eq 1 ]; then
+    info "Configuring SDK"
+
+    enter_chroot "${ROOT_DIR}" << EOF
+apk add alpine-sdk
+
+mkdir -p /var/cache/distfiles
+chmod a+w /var/cache/distfiles
+chgrp abuild /var/cache/distfiles
+chmod g+w /var/cache/distfiles
+
+adduser -D -s /bin/bash ${USER}
+addgroup ${USER} abuild
+echo "${USER}    ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+sudo -u ${USER} -s abuild-keygen -a -i
+EOF
+
+    if [ ! -z "${ALPINE_SDK_APORTS}" ] && [ "${ALPINE_SDK_APORTS}" -eq 1 ]; then
+        info "Configuring aports tree"
+
+        enter_chroot "${ROOT_DIR}" << EOF
+su -l -c "git clone --progress ${ALPINE_SDK_APORTS_GITURL}" ${USER}
+EOF
+    fi
+fi
+
+info ""
+info "Environment:\\t${CHROOT_NAME}"
+info "Run script:\\t${ROOT_DIR}/run"
+info ""
+info "Chroot environment is ready!"
+info ""
+info "Please use the run script to enter into this chroot environment'"
