@@ -119,11 +119,11 @@ EOF
 
     if [ ! -z "$qemu_arch" ]; then
         cat <<EOF >> "$root_dir/run.sh"
-\$_sudo chroot "\${CHROOT_DIR}" /usr/bin/qemu-$qemu_arch-static /bin/su -l \${USER}
+\$_sudo chroot "\${CHROOT_DIR}" /usr/bin/qemu-$qemu_arch-static /bin/su -l -c "source /etc/profile && /bin/sh"\${USER}
 EOF
     else
         cat <<EOF >> "$root_dir/run.sh"
-\$_sudo chroot "\${CHROOT_DIR}" /bin/su -l \${USER}
+\$_sudo chroot "\${CHROOT_DIR}" /bin/su -l -c "source /etc/profile && /bin/sh" \${USER}
 EOF
     fi
 
