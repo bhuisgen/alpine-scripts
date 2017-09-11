@@ -193,6 +193,8 @@ if [ ! -z "${ALPINE_ARCH}" ] && [ $(normalize_arch ${ALPINE_ARCH}) != $(normaliz
 	fi
 fi
 
+trap 'exit 1' ERR INT TERM
+
 info "Creating chroot environment in ${ROOT_DIR}"
 
 rm -fr "${DIST_DIR}"
