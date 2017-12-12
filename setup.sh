@@ -241,6 +241,7 @@ mknod -m 666 "${CHROOT_DIR}/dev/tty" c 5 0
 
 mkdir -p "${CHROOT_DIR}/etc/apk"
 echo "${ALPINE_MIRROR}/${ALPINE_BRANCH}/main" > "${CHROOT_DIR}/etc/apk/repositories"
+echo "${ALPINE_MIRROR}/${ALPINE_BRANCH}/community" >> "${CHROOT_DIR}/etc/apk/repositories"
 
 info "Creating run script"
 
