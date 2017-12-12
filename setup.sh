@@ -110,6 +110,8 @@ function cleanup() {
 trap 'cleanup' EXIT
 trap 'cleanup; exit 1' ERR INT TERM
 
+cd "\${BASEDIR}"
+
 \$_sudo mount -t proc none "\${CHROOT_DIR}/proc"
 \$_sudo mount -o bind /sys "\${CHROOT_DIR}/sys"
 \$_sudo mount -o bind /dev "\${CHROOT_DIR}/dev"
@@ -303,8 +305,8 @@ fi
 
 info ""
 info "Environment:\\t${CHROOT_NAME}"
-info "Run script:\\t${ROOT_DIR}/run"
+info "Run script:\\t${ROOT_DIR}/run.sh"
 info ""
 info "Chroot environment is ready!"
 info ""
-info "Please use the run script to enter into this chroot environment'"
+info "Please use the run script to enter into this chroot environment"
