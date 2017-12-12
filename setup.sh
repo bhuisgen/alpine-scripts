@@ -215,8 +215,22 @@ cd "${DIST_DIR}"
 wget ${ALPINE_MIRROR}/${ALPINE_BRANCH}/main/${ALPINE_ARCH}/apk-tools-static-${ALPINE_APKTOOLS}.apk
 tar -xzf apk-tools-static-${ALPINE_APKTOOLS}.apk
 
-./sbin/apk.static -X ${ALPINE_MIRROR}/latest-stable/main -U --allow-untrusted --root "${CHROOT_DIR}" \
-    --initdb ${ALPINE_ARCH:+--arch ${ALPINE_ARCH}} add alpine-base
+mkdir -p "${CHROOT_DIR}/etc/apk/keys"
+cd "${CHROOT_DIR}/etc/apk/keys"
+
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-4a6a0840.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-5243ef4b.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-524d27bb.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-5261cecb.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58199dcc.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58cbb476.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58e4f17d.rsa.pub
+
+cd "${DIST_DIR}"
+
+./sbin/apk.static -X ${ALPINE_MIRROR}/${ALPINE_BRANCH}/main --root "${CHROOT_DIR}" --update-cache --initdb \
+    ${ALPINE_ARCH:+--arch ${ALPINE_ARCH}} \
+    add alpine-base
 
 mknod -m 666 "${CHROOT_DIR}/dev/full" c 1 7
 mknod -m 666 "${CHROOT_DIR}/dev/ptmx" c 5 2
