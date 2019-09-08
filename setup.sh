@@ -221,6 +221,7 @@ mkdir -p "${CHROOT_DIR}/etc/apk/keys"
 cd "${CHROOT_DIR}/etc/apk/keys"
 
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-4a6a0840.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-4d07755e.rsa.pub
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-5243ef4b.rsa.pub
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-524d27bb.rsa.pub
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-5261cecb.rsa.pub
