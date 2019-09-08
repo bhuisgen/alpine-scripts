@@ -1,0 +1,7 @@
+pipeline:
+    build:
+        image: alpine:3.7
+        commands:
+            - apk add --update bash
+            - cp config.dist.v3.7-x86_64 config
+            - ./setup.sh
