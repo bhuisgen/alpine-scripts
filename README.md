@@ -17,9 +17,9 @@ Create a configuration from a template for the needed architecture:
 
 Setup the new chroot environment:
 
-    $ sudo ./setup.sh
+    $ sudo ./setup
 
 Enter the chroot environment:
 
     $ cd /alpine-chroot-<ARCH>
-    $ sudo ./run.sh
+    $ sudo ./run
