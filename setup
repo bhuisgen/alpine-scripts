@@ -43,7 +43,7 @@ function create_script() {
     root_dir=$1
     qemu_arch=$3
 
-    cat <<EOF > "$root_dir/run.sh"
+    cat <<EOF > "$root_dir/run"
 #!/usr/bin/env bash
 #
 # Run Alpine Linux chroot environment.
@@ -110,7 +110,7 @@ function cleanup() {
 trap 'cleanup' EXIT
 trap 'cleanup; exit 1' ERR INT TERM
 
-cd "\${BASEDIR}"
+cd "\${BASEDIR}" || exit 1
 
 \$_sudo mount -t proc none "\${CHROOT_DIR}/proc"
 \$_sudo mount -o bind /sys "\${CHROOT_DIR}/sys"
@@ -119,24 +119,24 @@ cd "\${BASEDIR}"
 \$_sudo cp /etc/resolv.conf "\${CHROOT_DIR}/etc/resolv.conf"
 EOF
 
-    if [ ! -z "$qemu_arch" ]; then
-        cat <<EOF >> "$root_dir/run.sh"
-\$_sudo chroot "\${CHROOT_DIR}" /usr/bin/qemu-$qemu_arch-static /bin/su -l -c "source /etc/profile && /bin/sh"\${USER}
+    if [ -n "$qemu_arch" ]; then
+        cat <<EOF >> "$root_dir/run"
+\$_sudo chroot "\${CHROOT_DIR}" /usr/bin/qemu-$qemu_arch-static /bin/su -l -c "source /etc/profile && /bin/sh" "\${USER}"
 EOF
     else
-        cat <<EOF >> "$root_dir/run.sh"
-\$_sudo chroot "\${CHROOT_DIR}" /bin/su -l -c "source /etc/profile && /bin/sh" \${USER}
+        cat <<EOF >> "$root_dir/run"
+\$_sudo chroot "\${CHROOT_DIR}" /bin/su -l -c "source /etc/profile && /bin/sh" "\${USER}"
 EOF
     fi
 
-    chmod +x "$root_dir/run.sh"
+    chmod +x "$root_dir/run"
 }
 
 function enter_chroot() {
     root_dir=$1
 
-    cd "$root_dir"
-    ./run.sh --root
+    cd "$root_dir" || die "chroot directory is missing"
+    ./run --root
 }
 
 while [[ $# -gt 0 ]]
@@ -149,8 +149,7 @@ do
         ;;
 
         *)
-        usage
-        exit 2
+        break
         ;;
     esac
 done
@@ -159,7 +158,7 @@ SCRIPT=$(readlink -f "$0")
 BASEDIR=$(dirname "$SCRIPT")
 USER=${SUDO_USER:-$(whoami)}
 
-if [ ! -z "$1" ]; then
+if [ -n "$1" ]; then
     CONFIG_FILE="$1"
 else
     CONFIG_FILE="${BASEDIR}/config"
@@ -167,7 +166,6 @@ fi
 
 if [ ! -f "${CONFIG_FILE}" ]; then
     die "Configuration file '${CONFIG_FILE}' not found"
-    exit 1
 fi
 
 source "${CONFIG_FILE}"
@@ -183,8 +181,8 @@ if [ -d "${CHROOT_DIR}" ]; then
     die "Chroot directory already exists"
 fi
 
-if [ ! -z "${ALPINE_ARCH}" ] && [ $(normalize_arch ${ALPINE_ARCH}) != $(normalize_arch $(uname -m)) ]; then
-	qemu_arch="$(normalize_arch ${ALPINE_ARCH})"
+if [ -n "${ALPINE_ARCH}" ] && [ "$(normalize_arch "${ALPINE_ARCH}")" != "$(normalize_arch "$(uname -m)")" ]; then
+	qemu_arch=$(normalize_arch "${ALPINE_ARCH}")
 
 	if [ ! -x "/usr/bin/qemu-$qemu_arch-static" ]; then
 	    die "/usr/bin/qemu-$qemu_arch-static not found"
@@ -203,22 +201,22 @@ rm -fr "${DIST_DIR}"
 mkdir -p "${DIST_DIR}"
 mkdir -p "${ROOT_DIR}" "${CHROOT_DIR}"
 
-if [ ! -z "${ALPINE_ARCH}" ] && [ $(normalize_arch ${ALPINE_ARCH}) != $(normalize_arch $(uname -m)) ]; then
-	qemu_arch="$(normalize_arch ${ALPINE_ARCH})"
+if [ -n "${ALPINE_ARCH}" ] && [ "$(normalize_arch "${ALPINE_ARCH}")" != "$(normalize_arch "$(uname -m)")" ]; then
+	qemu_arch=$(normalize_arch "${ALPINE_ARCH}")
 
     info "Configuring emulation for $qemu_arch"
 
 	mkdir -p "${CHROOT_DIR}/usr/bin"
-	cp -v /usr/bin/qemu-$qemu_arch-static "${CHROOT_DIR}/usr/bin/"
+	cp -v "/usr/bin/qemu-$qemu_arch-static" "${CHROOT_DIR}/usr/bin/"
 fi
 
-cd "${DIST_DIR}"
+cd "${DIST_DIR}" || die "dist directory error"
 
-wget ${ALPINE_MIRROR}/${ALPINE_BRANCH}/main/${ALPINE_ARCH}/apk-tools-static-${ALPINE_APKTOOLS}.apk
-tar -xzf apk-tools-static-${ALPINE_APKTOOLS}.apk
+wget "${ALPINE_MIRROR}/${ALPINE_BRANCH}/main/${ALPINE_ARCH}/apk-tools-static-${ALPINE_APKTOOLS}.apk"
+tar -xzf "apk-tools-static-${ALPINE_APKTOOLS}.apk"
 
 mkdir -p "${CHROOT_DIR}/etc/apk/keys"
-cd "${CHROOT_DIR}/etc/apk/keys"
+cd "${CHROOT_DIR}/etc/apk/keys" || die "APK keys are missing"
 
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-4a6a0840.rsa.pub
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-4d07755e.rsa.pub
@@ -229,9 +227,9 @@ wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58199dcc.
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58cbb476.rsa.pub
 wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58e4f17d.rsa.pub
 
-cd "${DIST_DIR}"
+cd "${DIST_DIR}" || die "dist directory error"
 
-./sbin/apk.static -X ${ALPINE_MIRROR}/${ALPINE_BRANCH}/main --root "${CHROOT_DIR}" --update-cache --initdb \
+./sbin/apk.static -X "${ALPINE_MIRROR}/${ALPINE_BRANCH}/main" --root "${CHROOT_DIR}" --update-cache --initdb \
     ${ALPINE_ARCH:+--arch ${ALPINE_ARCH}} \
     add alpine-base
 
@@ -248,7 +246,7 @@ echo "${ALPINE_MIRROR}/${ALPINE_BRANCH}/community" >> "${CHROOT_DIR}/etc/apk/rep
 
 info "Creating run script"
 
-create_script "${ROOT_DIR}" $qemu_arch
+create_script "${ROOT_DIR}" "$qemu_arch"
 
 info "Configuring base environment"
 
@@ -278,7 +276,7 @@ echo "export PS1='\\033[1;31m(${CHROOT_NAME})\\033[0m:\[\033[01;34m\]\w\[\033[00
 mkdir -p "${CHROOT_DIR}/etc/skel"
 echo "export PS1='\\033[1;33m(${CHROOT_NAME})\\033[0m:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> "${CHROOT_DIR}/etc/skel/.bashrc"
 
-if [ ! -z "${ALPINE_SDK}" ] && [ "${ALPINE_SDK}" -eq 1 ]; then
+if [ -n "${ALPINE_SDK}" ] && [ "${ALPINE_SDK}" -eq 1 ]; then
     info "Configuring SDK"
 
     enter_chroot "${ROOT_DIR}" << EOF
@@ -295,7 +293,7 @@ echo "${USER}    ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 sudo -u ${USER} -s abuild-keygen -a -i
 EOF
 
-    if [ ! -z "${ALPINE_SDK_APORTS}" ] && [ "${ALPINE_SDK_APORTS}" -eq 1 ]; then
+    if [ -n "${ALPINE_SDK_APORTS}" ] && [ "${ALPINE_SDK_APORTS}" -eq 1 ]; then
         info "Configuring aports tree"
 
         enter_chroot "${ROOT_DIR}" << EOF
@@ -304,9 +302,8 @@ EOF
     fi
 fi
 
-info ""
 info "Environment:\\t${CHROOT_NAME}"
-info "Run script:\\t${ROOT_DIR}/run.sh"
+info "Run script:\\t${ROOT_DIR}/run"
 info ""
 info "Chroot environment is ready!"
 info ""
