@@ -3,5 +3,5 @@ pipeline:
         image: alpine:3.10
         commands:
             - apk add --update bash
-            - cp config.dist.v3.10-x86_64 config
+            - cp config.dist.v3.11-x86_64 config
             - ./setup.sh
