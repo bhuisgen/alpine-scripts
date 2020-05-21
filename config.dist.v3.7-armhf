@@ -1,4 +1,4 @@
-CHROOT_NAME=alpine-armhf
+CHROOT_NAME=alpine-v3.7-armhf
 ROOT_DIR=/alpine-chroot-v3.7-armhf
 
 ALPINE_MIRROR=http://dl-cdn.alpinelinux.org/alpine

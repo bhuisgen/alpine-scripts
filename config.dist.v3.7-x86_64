@@ -1,4 +1,4 @@
-CHROOT_NAME=alpine-x86_64
+CHROOT_NAME=alpine-v3.7-x86_64
 ROOT_DIR=/alpine-chroot-v3.7-x86_64
 
 ALPINE_MIRROR=http://dl-cdn.alpinelinux.org/alpine
