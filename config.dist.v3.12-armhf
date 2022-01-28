@@ -1,0 +1,11 @@
+CHROOT_NAME=alpine-v3.12-armhf
+ROOT_DIR=/alpine-chroot-v3.12-armhf
+
+ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
+ALPINE_BRANCH=v3.12
+ALPINE_ARCH=armhf
+ALPINE_APKTOOLS=2.10.5-r1
+ALPINE_PACKAGES=
+ALPINE_SDK=1
+ALPINE_SDK_APORTS=1
+ALPINE_SDK_APORTS_GITURL=https://github.com/alpinelinux/aports
