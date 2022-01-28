@@ -1,0 +1,11 @@
+CHROOT_NAME=alpine-v3.15-x86_64
+ROOT_DIR=alpine-chroot-v3.15-x86_64
+
+ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
+ALPINE_BRANCH=v3.15
+ALPINE_ARCH=x86_64
+ALPINE_APKTOOLS=2.12.7-r3
+ALPINE_PACKAGES=
+ALPINE_SDK=1
+ALPINE_SDK_APORTS=1
+ALPINE_SDK_APORTS_GITURL=https://github.com/alpinelinux/aports
