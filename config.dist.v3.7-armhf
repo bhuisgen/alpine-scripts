@@ -1,7 +1,7 @@
 CHROOT_NAME=alpine-v3.7-armhf
 ROOT_DIR=/alpine-chroot-v3.7-armhf
 
-ALPINE_MIRROR=http://dl-cdn.alpinelinux.org/alpine
+ALPINE_MIRROR=https://dl-cdn.alpinelinux.org/alpine
 ALPINE_BRANCH=v3.7
 ALPINE_ARCH=armhf
 ALPINE_APKTOOLS=2.8.1-r1
