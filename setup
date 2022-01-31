@@ -4,6 +4,7 @@
 #
 # Boris HUISGEN <bhuisgen@hbis.fr>
 #
+set -x
 
 function usage() {
     echo -e "Usage: $(basename "$0") [OPTIONS] [<CONFIG>]"
@@ -216,31 +217,30 @@ wget "${ALPINE_MIRROR}/${ALPINE_BRANCH}/main/${ALPINE_ARCH}/apk-tools-static-${A
 tar -xzf "apk-tools-static-${ALPINE_APKTOOLS}.apk"
 
 mkdir -p "${CHROOT_DIR}/etc/apk/keys"
-cd "${CHROOT_DIR}/etc/apk/keys" || die "APK keys are missing"
+cd "${CHROOT_DIR}/etc/apk/keys" || die "apk keys directory error"
 
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-4a6a0840.rsa.pub
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-4d07755e.rsa.pub
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-5243ef4b.rsa.pub
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-524d27bb.rsa.pub
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-5261cecb.rsa.pub
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58199dcc.rsa.pub
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58cbb476.rsa.pub
-wget https://alpinelinux.org/keys/alpine-devel%40lists.alpinelinux.org-58e4f17d.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-4a6a0840.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-4d07755e.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-5243ef4b.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-524d27bb.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-5261cecb.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-58199dcc.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-58cbb476.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-58e4f17d.rsa.pub
+wget https://alpinelinux.org/keys/alpine-devel@lists.alpinelinux.org-60ac2099.rsa.pub
 
-cd "${DIST_DIR}" || die "dist directory error"
+cd "${CHROOT_DIR}" || die "chroot directory error"
 
-./sbin/apk.static -X "${ALPINE_MIRROR}/${ALPINE_BRANCH}/main" --root "${CHROOT_DIR}" --update-cache --initdb \
-    ${ALPINE_ARCH:+--arch ${ALPINE_ARCH}} \
-    add alpine-base
+mirror=${ALPINE_MIRROR/https:\/\//http:\/\/}
+${DIST_DIR}/sbin/apk.static -X "${mirror}/${ALPINE_BRANCH}/main" --root . --update-cache --allow-untrusted --initdb ${ALPINE_ARCH:+--arch ${ALPINE_ARCH}} add alpine-base
 
-mknod -m 666 "${CHROOT_DIR}/dev/full" c 1 7
-mknod -m 666 "${CHROOT_DIR}/dev/ptmx" c 5 2
-mknod -m 644 "${CHROOT_DIR}/dev/random" c 1 8
-mknod -m 644 "${CHROOT_DIR}/dev/urandom" c 1 9
-mknod -m 666 "${CHROOT_DIR}/dev/zero" c 1 5
-mknod -m 666 "${CHROOT_DIR}/dev/tty" c 5 0
+[ -e "${CHROOT_DIR}/dev/full" ] || mknod -m 666 "${CHROOT_DIR}/dev/full" c 1 7
+[ -e "${CHROOT_DIR}/dev/ptmx" ] || mknod -m 666 "${CHROOT_DIR}/dev/ptmx" c 5 2
+[ -e "${CHROOT_DIR}/dev/random" ] || mknod -m 644 "${CHROOT_DIR}/dev/random" c 1 8
+[ -e "${CHROOT_DIR}/dev/urandom" ] || mknod -m 644 "${CHROOT_DIR}/dev/urandom" c 1 9
+[ -e "${CHROOT_DIR}/dev/zero" ] || mknod -m 666 "${CHROOT_DIR}/dev/zero" c 1 5
+[ -e "${CHROOT_DIR}/dev/tty" ] || mknod -m 666 "${CHROOT_DIR}/dev/tty" c 5 0
 
-mkdir -p "${CHROOT_DIR}/etc/apk"
 echo "${ALPINE_MIRROR}/${ALPINE_BRANCH}/main" > "${CHROOT_DIR}/etc/apk/repositories"
 echo "${ALPINE_MIRROR}/${ALPINE_BRANCH}/community" >> "${CHROOT_DIR}/etc/apk/repositories"
 
@@ -266,7 +266,7 @@ rc-update add savecache shutdown
 
 apk update
 apk upgrade
-apk add bash curl git jq openssh-client tar ${ALPINE_PACKAGES}
+apk add bash curl git jq openssh-client sudo tar ${ALPINE_PACKAGES}
 EOF
 
 rsync -a --no-owner --no-group "${BASEDIR}/rootfs/" "${CHROOT_DIR}/"
@@ -290,7 +290,7 @@ chmod g+w /var/cache/distfiles
 adduser -D -s /bin/bash ${USER}
 addgroup ${USER} abuild
 echo "${USER}    ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-sudo -u ${USER} -s abuild-keygen -a -i
+su ${USER} -c 'abuild-keygen -a -i -n'
 EOF
 
     if [ -n "${ALPINE_SDK_APORTS}" ] && [ "${ALPINE_SDK_APORTS}" -eq 1 ]; then
